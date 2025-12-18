@@ -36,17 +36,6 @@ def get_translator(model_name: str):
     return pipeline("translation", model=model_name)
 
 
-@st.cache_resource(show_spinner=False)
-def get_emotion_classifier():
-    from transformers import pipeline
-
-    return pipeline(
-        "text-classification",
-        model="j-hartmann/emotion-english-distilroberta-base",
-        top_k=None,
-    )
-
-
 @dataclass(frozen=True)
 class ClientRecord:
     phone_number: str
@@ -209,31 +198,12 @@ def translate_to_english(text: str, src_lang: str) -> Optional[str]:
     return " ".join(parts).strip()
 
 
-def predict_emotion(text: str) -> Optional[tuple[str, float]]:
-    text = text.strip()
-    if not text:
-        return None
-    classifier = get_emotion_classifier()
-    result = classifier(text, truncation=True, max_length=512)
-    # Handle various transformers return shapes across versions.
-    if isinstance(result, list) and result and isinstance(result[0], list):
-        candidates = result[0]
-    elif isinstance(result, list):
-        candidates = result
-    elif isinstance(result, dict):
-        candidates = [result]
-    else:
-        return None
-    best = max(candidates, key=lambda d: float(d.get("score", 0.0)))
-    return str(best.get("label", "unknown")), float(best.get("score", 0.0))
-
-
 def generate_suggested_actions(transcript: str, emotion_label: Optional[str]) -> list[str]:
     t = transcript.lower()
     actions: list[str] = []
-    if emotion_label and emotion_label.lower() in {"anger", "annoyance", "disgust"}:
+    if emotion_label and emotion_label.lower() in {"angry"}:
         actions.append("Caller upset: acknowledge feelings and de-escalate; use calm tone.")
-    if emotion_label and emotion_label.lower() in {"fear", "sadness"}:
+    if emotion_label and emotion_label.lower() in {"sad"}:
         actions.append("Caller distressed: reassure and explain next steps clearly.")
     if re.search(r"\b(charged twice|double charge|duplicate (charge|transaction))\b", t):
         actions.append("Check duplicate transactions and start a dispute/refund if applicable.")
@@ -304,13 +274,25 @@ def main() -> None:
                 with st.spinner("Translating to English..."):
                     translated = translate_to_english(transcript, detected_lang)
 
-            text_for_emotion = translated if translated else transcript
-            emotion = None
-            if text_for_emotion:
-                with st.spinner("Detecting emotion..."):
-                    emotion = predict_emotion(text_for_emotion)
+            ser_error = None
+            ser_timeline = []
+            ser_label = None
+            ser_scores: dict[str, float] = {}
+            try:
+                with st.spinner("Detecting emotion (SER)..."):
+                    from ser import load_audio_16k_mono, predict_emotion_windows
 
-            actions = generate_suggested_actions(text_for_emotion or transcript, emotion[0] if emotion else None)
+                    audio_16k = load_audio_16k_mono(tmp_path)
+                    ser_timeline, ser_label, ser_scores = predict_emotion_windows(
+                        audio_16k,
+                        window_s=4.0,
+                        hop_s=2.0,
+                        top_k=4,
+                    )
+            except Exception as exc:
+                ser_error = str(exc)
+
+            actions = generate_suggested_actions(translated or transcript, ser_label)
 
             st.session_state["call_result"] = {
                 "caller_phone": caller_phone,
@@ -319,7 +301,10 @@ def main() -> None:
                 "detected_lang": detected_lang,
                 "lang_prob": lang_prob,
                 "translated": translated,
-                "emotion": emotion,
+                "ser_timeline": ser_timeline,
+                "ser_label": ser_label,
+                "ser_scores": ser_scores,
+                "ser_error": ser_error,
                 "actions": actions,
             }
         finally:
@@ -351,12 +336,27 @@ def main() -> None:
             st.write("Upload audio and click **Process call**.")
             return
 
-        st.subheader("Emotion")
-        emotion = result.get("emotion")
-        if emotion:
-            st.write(f"**{emotion[0]}** (confidence {emotion[1]:.2f})")
+        st.subheader("Emotion (SER)")
+        if result.get("ser_error"):
+            st.warning(f"SER failed: {result['ser_error']}")
+        ser_label = result.get("ser_label")
+        ser_scores = result.get("ser_scores") or {}
+        ser_timeline = result.get("ser_timeline") or []
+        if ser_label:
+            st.write(f"**Overall:** {ser_label} ({ser_scores.get(ser_label, 0.0):.2f})")
+            if ser_timeline:
+                t0, last_label, last_score, _ = ser_timeline[-1]
+                st.write(f"**Current:** {last_label} ({last_score:.2f}) at {t0:.1f}s")
+            with st.expander("Mean emotion scores"):
+                st.json({k: round(v, 4) for k, v in ser_scores.items()})
+            with st.expander("Emotion timeline"):
+                rows = [
+                    {"t_start_s": round(t, 2), "label": lbl, "score": round(score, 4)}
+                    for (t, lbl, score, _full) in ser_timeline
+                ]
+                st.dataframe(rows, use_container_width=True, height=240)
         else:
-            st.write("No emotion result (empty transcript).")
+            st.write("No SER result.")
 
         st.subheader("Client record")
         client = result.get("client")

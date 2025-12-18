@@ -8,7 +8,7 @@ Upload an audio call + manually enter caller phone number, then get:
 
 - Whisper transcription
 - Language detection + translation to English (only when needed)
-- Text-based emotion label + confidence
+- Speech Emotion Recognition (SER): angry / happy / sad / neutral (overall + timeline)
 - Client record lookup from a tiny synthetic SQLite DB
 - Rule-based suggested actions
 
@@ -21,7 +21,16 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-First run downloads models (Whisper + translation + emotion) and can take a while.
+First run downloads models (Whisper + translation + SER) and can take a while.
+
+## Quick SER test (optional)
+
+```powershell
+curl.exe -L -o happy.wav "https://cdn-media.huggingface.co/speech_samples/IEMOCAP_Ses01F_impro03_F013.wav"
+curl.exe -L -o neutral.wav "https://cdn-media.huggingface.co/speech_samples/IEMOCAP_Ses01F_impro04_F000.wav"
+python ser_cli.py happy.wav
+python ser_cli.py neutral.wav
+```
 
 ## Demo phone numbers (synthetic DB)
 
@@ -32,4 +41,5 @@ First run downloads models (Whisper + translation + emotion) and can take a whil
 
 ## Notes
 - Translation is supported for: `de`, `nl`, `fr`, `es`, `it`, `pt` (Whisper language codes).
+- SER uses `superb/wav2vec2-base-superb-er` on 4s windows with 2s hop.
 - The client DB auto-creates at `data/clients.db` on first run.
