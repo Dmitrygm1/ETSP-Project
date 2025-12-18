@@ -1,4 +1,4 @@
-# Call Support Copilot (MWI)
+# Call Support Copilot
 
 #### Project for Essentials of Speech and Text Processing
 
@@ -8,7 +8,7 @@ Upload an audio call + manually enter caller phone number, then get:
 
 - Whisper transcription
 - Language detection + translation to English (only when needed)
-- Speech Emotion Recognition (SER): angry / happy / sad / neutral (overall + timeline)
+- Speech Emotion Recognition (SER): 7-class emotion + Valence/Arousal/Dominance (overall + timeline)
 - Client record lookup from a tiny synthetic SQLite DB
 - Rule-based suggested actions
 
@@ -41,5 +41,5 @@ python ser_cli.py neutral.wav
 
 ## Notes
 - Translation is supported for: `de`, `nl`, `fr`, `es`, `it`, `pt` (Whisper language codes).
-- SER uses `superb/wav2vec2-base-superb-er` on 4s windows with 2s hop.
+- SER uses `MERaLiON/MERaLiON-SER-v1` on 4s windows with 2s hop.
 - The client DB auto-creates at `data/clients.db` on first run.

@@ -201,9 +201,9 @@ def translate_to_english(text: str, src_lang: str) -> Optional[str]:
 def generate_suggested_actions(transcript: str, emotion_label: Optional[str]) -> list[str]:
     t = transcript.lower()
     actions: list[str] = []
-    if emotion_label and emotion_label.lower() in {"angry"}:
+    if emotion_label and emotion_label.lower() in {"angry", "disgusted"}:
         actions.append("Caller upset: acknowledge feelings and de-escalate; use calm tone.")
-    if emotion_label and emotion_label.lower() in {"sad"}:
+    if emotion_label and emotion_label.lower() in {"sad", "fearful"}:
         actions.append("Caller distressed: reassure and explain next steps clearly.")
     if re.search(r"\b(charged twice|double charge|duplicate (charge|transaction))\b", t):
         actions.append("Check duplicate transactions and start a dispute/refund if applicable.")
@@ -220,7 +220,7 @@ def generate_suggested_actions(transcript: str, emotion_label: Optional[str]) ->
 
 def main() -> None:
     st.set_page_config(page_title="Call Support Copilot", layout="wide")
-    st.title("Call Support Copilot (MWI)")
+    st.title("Call Support Copilot")
     st.caption("Demo: upload an audio call + caller number -> transcript, translation, emotion, client lookup.")
 
     db_path = get_db_path()
@@ -278,16 +278,16 @@ def main() -> None:
             ser_timeline = []
             ser_label = None
             ser_scores: dict[str, float] = {}
+            ser_vad: dict[str, float] = {}
             try:
                 with st.spinner("Detecting emotion (SER)..."):
                     from ser import load_audio_16k_mono, predict_emotion_windows
 
                     audio_16k = load_audio_16k_mono(tmp_path)
-                    ser_timeline, ser_label, ser_scores = predict_emotion_windows(
+                    ser_timeline, ser_label, ser_scores, ser_vad = predict_emotion_windows(
                         audio_16k,
                         window_s=4.0,
                         hop_s=2.0,
-                        top_k=4,
                     )
             except Exception as exc:
                 ser_error = str(exc)
@@ -304,6 +304,7 @@ def main() -> None:
                 "ser_timeline": ser_timeline,
                 "ser_label": ser_label,
                 "ser_scores": ser_scores,
+                "ser_vad": ser_vad,
                 "ser_error": ser_error,
                 "actions": actions,
             }
@@ -342,17 +343,33 @@ def main() -> None:
         ser_label = result.get("ser_label")
         ser_scores = result.get("ser_scores") or {}
         ser_timeline = result.get("ser_timeline") or []
+        ser_vad = result.get("ser_vad") or {}
         if ser_label:
             st.write(f"**Overall:** {ser_label} ({ser_scores.get(ser_label, 0.0):.2f})")
+            if ser_vad:
+                v_col, a_col, d_col = st.columns(3)
+                v_col.metric("Valence", f"{ser_vad.get('valence', 0.0):.2f}")
+                a_col.metric("Arousal", f"{ser_vad.get('arousal', 0.0):.2f}")
+                d_col.metric("Dominance", f"{ser_vad.get('dominance', 0.0):.2f}")
             if ser_timeline:
-                t0, last_label, last_score, _ = ser_timeline[-1]
-                st.write(f"**Current:** {last_label} ({last_score:.2f}) at {t0:.1f}s")
+                t0, last_label, last_conf, (v, a, d), _ = ser_timeline[-1]
+                st.write(
+                    f"**Current:** {last_label} ({last_conf:.2f}) at {t0:.1f}s "
+                    f"| V/A/D: {v:.2f}/{a:.2f}/{d:.2f}"
+                )
             with st.expander("Mean emotion scores"):
                 st.json({k: round(v, 4) for k, v in ser_scores.items()})
             with st.expander("Emotion timeline"):
                 rows = [
-                    {"t_start_s": round(t, 2), "label": lbl, "score": round(score, 4)}
-                    for (t, lbl, score, _full) in ser_timeline
+                    {
+                        "t_start_s": round(t, 2),
+                        "label": lbl,
+                        "confidence": round(conf, 4),
+                        "valence": round(v, 4),
+                        "arousal": round(a, 4),
+                        "dominance": round(d, 4),
+                    }
+                    for (t, lbl, conf, (v, a, d), _full_probs) in ser_timeline
                 ]
                 st.dataframe(rows, use_container_width=True, height=240)
         else:
