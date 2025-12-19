@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import sqlite3
@@ -218,6 +219,50 @@ def generate_suggested_actions(transcript: str, emotion_label: Optional[str]) ->
     return actions
 
 
+@st.cache_data(show_spinner=False)
+def load_slu_intents_config() -> dict:
+    cfg_path = Path(__file__).resolve().parent / "slu" / "intents_config.json"
+    if not cfg_path.exists():
+        return {}
+    try:
+        return json.loads(cfg_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def dedupe_preserve_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def generate_intent_actions(slu_result: Optional[dict], emotion_label: Optional[str]) -> list[str]:
+    intent = str((slu_result or {}).get("intent") or "unknown").strip()
+    slots = (slu_result or {}).get("slots") or {}
+
+    cfg = load_slu_intents_config()
+    actions_map = cfg.get("intent_actions") or {}
+    actions: list[str] = list(actions_map.get(intent) or actions_map.get(intent.lower()) or actions_map.get("unknown") or [])
+
+    try:
+        from slu.slots import suggest_followups
+
+        followups = suggest_followups(intent, slots)
+        actions = followups + actions
+    except Exception:
+        pass
+
+    if emotion_label and emotion_label.lower() in {"angry", "disgusted"} and intent in {"chargeback", "refund_not_showing_up"}:
+        actions = ["Caller upset: acknowledge feelings and de-escalate; use calm tone."] + actions
+
+    return dedupe_preserve_order([a for a in actions if a])
+
+
 def main() -> None:
     st.set_page_config(page_title="Call Support Copilot", layout="wide")
     st.title("Call Support Copilot")
@@ -292,7 +337,21 @@ def main() -> None:
             except Exception as exc:
                 ser_error = str(exc)
 
-            actions = generate_suggested_actions(translated or transcript, ser_label)
+            text_for_slu = translated or transcript
+
+            slu_error = None
+            slu_result = None
+            try:
+                with st.spinner("Understanding intent (SLU)..."):
+                    from slu.infer import run_slu
+
+                    slu_result = run_slu(text_for_slu or "")
+            except Exception as exc:
+                slu_error = str(exc)
+
+            intent_actions = generate_intent_actions(slu_result, ser_label) if slu_result else []
+            rule_actions = generate_suggested_actions(text_for_slu or "", ser_label)
+            actions = dedupe_preserve_order(intent_actions + rule_actions)
 
             st.session_state["call_result"] = {
                 "caller_phone": caller_phone,
@@ -306,6 +365,8 @@ def main() -> None:
                 "ser_scores": ser_scores,
                 "ser_vad": ser_vad,
                 "ser_error": ser_error,
+                "slu_result": slu_result,
+                "slu_error": slu_error,
                 "actions": actions,
             }
         finally:
@@ -374,6 +435,26 @@ def main() -> None:
                 st.dataframe(rows, use_container_width=True, height=240)
         else:
             st.write("No SER result.")
+
+        st.subheader("Intent (SLU)")
+        if result.get("slu_error"):
+            st.warning(f"SLU failed: {result['slu_error']}")
+        slu = result.get("slu_result") or {}
+        if slu:
+            if slu.get("is_ood"):
+                st.warning(f"Intent: `unknown` (p={float(slu.get('confidence', 0.0)):.2f})")
+            else:
+                st.write(f"**Intent:** `{slu.get('intent')}` ({float(slu.get('confidence', 0.0)):.2f})")
+            slots = slu.get("slots") or {}
+            if slots:
+                st.write("**Slots:**")
+                st.json(slots)
+            else:
+                st.write("**Slots:** (none)")
+            with st.expander("SLU details"):
+                st.json(slu)
+        else:
+            st.write("No SLU result.")
 
         st.subheader("Client record")
         client = result.get("client")

@@ -1,0 +1,33 @@
+{
+  "dataset": "banking77",
+  "agent_language": "en",
+  "ood_threshold": 0.78,
+  "intent_actions": {
+    "chargeback": [
+      "Confirm transaction amount/date and merchant.",
+      "Check duplicates and merchant name variants.",
+      "Start dispute/chargeback workflow and explain timeline."
+    ],
+    "lost_or_stolen_card": [
+      "Confirm identity and freeze the card immediately.",
+      "Order replacement card and confirm delivery address.",
+      "Review recent transactions for fraud."
+    ],
+    "card_arrival": [
+      "Verify identity and confirm shipping address.",
+      "Check card delivery status and expected arrival date.",
+      "If delayed, order a replacement or escalate to logistics."
+    ],
+    "refund_not_showing_up": [
+      "Confirm merchant, amount and refund date.",
+      "Explain typical refund timelines and next steps.",
+      "If overdue, open a case and provide reference ID."
+    ],
+    "unknown": [
+      "Ask a clarifying question: \"What do you need help with today?\"",
+      "Confirm identity and gather key details (amount/date/merchant) if relevant.",
+      "Route to the appropriate support flow once clarified."
+    ]
+  }
+}
+

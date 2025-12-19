@@ -9,8 +9,9 @@ Upload an audio call + manually enter caller phone number, then get:
 - Whisper transcription
 - Language detection + translation to English (only when needed)
 - Speech Emotion Recognition (SER): 7-class emotion + Valence/Arousal/Dominance (overall + timeline)
+- Spoken Language Understanding (SLU): intent + OOD/unknown + regex slots
 - Client record lookup from a tiny synthetic SQLite DB
-- Rule-based suggested actions
+- Suggested actions (intent-driven + rule-based)
 
 ## Run
 
@@ -22,6 +23,10 @@ streamlit run app.py
 ```
 
 First run downloads models (Whisper + translation + SER) and can take a while.
+
+## SLU (optional training)
+
+See `slu/README.md` for training + evaluation scripts (baseline + transformer).
 
 ## Quick SER test (optional)
 

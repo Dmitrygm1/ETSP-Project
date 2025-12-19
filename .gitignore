@@ -5,3 +5,5 @@ venv/
 .streamlit/
 data/*.db
 .qodo/
+models/
+data/hf_cache/
