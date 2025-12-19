@@ -282,7 +282,7 @@ def main() -> None:
             help="Use 'small' for better accuracy (slower + larger download).",
         )
 
-    col_left, col_right = st.columns([2, 1], gap="large")
+    col_left, col_middle, col_right = st.columns([1, 1, 1], gap="large")
 
     with col_left:
         phone_input = st.text_input("Caller phone number", placeholder="+41 79 123 45 67")
@@ -293,10 +293,12 @@ def main() -> None:
         if audio_file is not None:
             st.audio(audio_file.getvalue())
 
-        run = st.button("Process call", type="primary", disabled=(audio_file is None or not phone_input.strip()))
+        run = st.button("Process call", type="primary", disabled=(audio_file is None))
 
-    if run and audio_file is not None and phone_input.strip():
-        caller_phone = canonicalize_phone_number(phone_input)
+    if run and audio_file is not None:
+        # Default to demo number if empty
+        phone_val = phone_input.strip() or "+41791234567"
+        caller_phone = canonicalize_phone_number(phone_val)
         client = lookup_client(db_path, caller_phone)
 
         audio_bytes = audio_file.getvalue()
@@ -392,12 +394,13 @@ def main() -> None:
                         "Try English, Dutch (nl), German (de), French (fr), Spanish (es), Italian (it), or Portuguese (pt)."
                     )
 
-    with col_right:
-        if not result:
+    if not result:
+        with col_middle:
             st.subheader("Outputs")
             st.write("Upload audio and click **Process call**.")
-            return
+        return
 
+    with col_middle:
         st.subheader("Emotion (SER)")
         if result.get("ser_error"):
             st.warning(f"SER failed: {result['ser_error']}")
@@ -456,6 +459,7 @@ def main() -> None:
         else:
             st.write("No SLU result.")
 
+    with col_right:
         st.subheader("Client record")
         client = result.get("client")
         if client:

@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
+import pandas as pd
 import torch
 from datasets import Dataset, DatasetDict, load_dataset
 from joblib import load as joblib_load
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 
@@ -266,6 +267,31 @@ def main() -> None:
         acc_test = 0.0
         f1_test = 0.0
     print(f"test @T={best_t:.2f}: coverage={cov_test:.3f} acc_accepted={acc_test:.3f} f1_macro_accepted={f1_test:.3f}")
+
+    # Generate confusion matrix and classification report
+    print("\nGenerating confusion matrix and classification report...")
+    
+    # Ensure we have label names
+    if _id2label:
+        sorted_ids = sorted(_id2label.keys())
+        label_names = [_id2label[i] for i in sorted_ids]
+    else:
+        label_names = [str(i) for i in range(len(np.unique(test_labels)))]
+
+    # Classification Report
+    # We use zero_division=0 to avoid warnings for classes that might not be in the test set
+    report_dict = classification_report(test_labels, pred_test, target_names=label_names, output_dict=True, zero_division=0)
+    report_df = pd.DataFrame(report_dict).transpose()
+    report_path = root / "slu" / "classification_report.csv"
+    report_df.to_csv(report_path)
+    print(f"Classification report saved to {report_path}")
+
+    # Confusion Matrix
+    cm = confusion_matrix(test_labels, pred_test)
+    cm_df = pd.DataFrame(cm, index=label_names, columns=label_names)
+    cm_path = root / "slu" / "confusion_matrix.csv"
+    cm_df.to_csv(cm_path)
+    print(f"Confusion matrix saved to {cm_path}")
 
     if args.write_config:
         cfg = _load_config(cfg_path)
