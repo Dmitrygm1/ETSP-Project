@@ -1,2 +1,14 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Audio
+*.wav binary
+*.mp3 binary
+*.flac binary
+
+# Models & Checkpoints
+*.safetensors binary
+*.pt binary
+*.pth binary
+*.bin binary
+*.onnx binary
