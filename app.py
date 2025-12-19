@@ -336,6 +336,7 @@ def main() -> None:
             border-radius: 8px;
             border-left: 4px solid #667eea;
             margin: 1rem 0;
+            color: #1F2937;
         }
         .metric-card {
             background: white;
@@ -343,6 +344,7 @@ def main() -> None:
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin: 0.5rem 0;
+            color: #1F2937;
         }
         .emotion-badge {
             display: inline-block;
@@ -366,12 +368,14 @@ def main() -> None:
             border-radius: 6px;
             border-left: 3px solid #3B82F6;
             margin: 0.5rem 0;
+            color: #1F2937;
         }
         .client-card {
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             padding: 1.5rem;
             border-radius: 10px;
             margin: 1rem 0;
+            color: #1F2937;
         }
         .stButton>button {
             width: 100%;
@@ -482,12 +486,12 @@ def main() -> None:
         
         if audio_file is not None:
             st.markdown("**Audio Preview:**")
-            st.audio(audio_file.getvalue())
+            st.audio(audio_file)
             st.success(f"✅ File loaded: {audio_file.name}")
         else:
             st.info("👆 Please upload an audio file to begin analysis")
 
-        run = st.button("🚀 Process Call", type="primary", disabled=(audio_file is None), use_container_width=True)
+        run = st.button("🚀 Process Call", type="primary", disabled=(audio_file is None), width="stretch")
 
     if run and audio_file is not None:
         # Default to demo number if empty
@@ -702,7 +706,7 @@ def main() -> None:
                     {"Emotion": k, "Score": f"{v:.4f}", "Percentage": f"{(v*100):.2f}%"}
                     for k, v in sorted(ser_scores.items(), key=lambda x: x[1], reverse=True)
                 ])
-                st.dataframe(emotion_df, use_container_width=True, hide_index=True)
+                st.dataframe(emotion_df, width="stretch", hide_index=True)
             
             # Timeline expander
             if ser_timeline:
@@ -719,7 +723,7 @@ def main() -> None:
                         for (t, lbl, conf, (v, a, d), _full_probs) in ser_timeline
                     ]
                     timeline_df = pd.DataFrame(rows)
-                    st.dataframe(timeline_df, use_container_width=True, hide_index=True)
+                    st.dataframe(timeline_df, width="stretch", hide_index=True)
         else:
             st.info("No emotion analysis available.")
 
