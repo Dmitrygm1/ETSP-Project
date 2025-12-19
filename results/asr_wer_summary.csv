@@ -1,0 +1,2 @@
+dataset,n,wer_mean,wer_ci95_lo,wer_ci95_hi
+librispeech_test_clean,50,0.06611632440056167,0.04416591696964172,0.09171959401430053

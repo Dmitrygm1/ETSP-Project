@@ -1,0 +1,2 @@
+n,macro_f1_full,macro_f1_chunked,mean_rtf_full,mean_rtf_chunked,f1_negative_full,f1_non_negative_full,delta_f1_full_nonneg_minus_neg,f1_negative_chunked,f1_non_negative_chunked,delta_f1_chunked_nonneg_minus_neg
+6,0.9166666666666666,1.0,1.5354166666666664,3.4054333333333333,1.0,0.8333333333333333,-0.16666666666666674,1.0,1.0,0.0

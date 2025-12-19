@@ -1,0 +1,7 @@
+{
+  "whisper_model": "base",
+  "n_per_dataset": 50,
+  "seed": 0,
+  "accented_dataset": "KoelLabs/L2ArcticSpontaneousSplit",
+  "accented_split": ""
+}
