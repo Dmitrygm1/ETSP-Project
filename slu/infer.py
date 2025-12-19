@@ -156,6 +156,14 @@ def _load_slu_backend() -> dict[str, Any]:
             backend["load_error"] = f"Failed to load baseline SLU model: {exc}"
 
     backend["backend"] = None
+    if not backend.get("load_error"):
+        backend["load_error"] = (
+            "No SLU model found. Train a model by running:\n"
+            "  python -m slu.train_transformer\n"
+            "or\n"
+            "  python -m slu.train_baseline\n"
+            "The app will still work with basic slot extraction."
+        )
     return backend
 
 
