@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -7,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import pandas as pd
 import streamlit as st
 
 
@@ -25,9 +28,23 @@ TRANSLATION_MODELS = {
 
 @st.cache_resource(show_spinner=False)
 def get_whisper_model(model_size: str):
+    """Load and cache the Whisper model.
+    
+    Downloads the model from HuggingFace on first call.
+    """
     from faster_whisper import WhisperModel
 
-    return WhisperModel(model_size, device="cpu", compute_type="int8")
+    try:
+        return WhisperModel(model_size, device="cpu", compute_type="int8")
+    except Exception as e:
+        error_msg = str(e)
+        if "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+            raise RuntimeError(
+                f"Failed to download Whisper model. Check your internet connection.\n"
+                f"Model size: {model_size}\n"
+                f"Error: {error_msg}"
+            )
+        raise
 
 
 @st.cache_resource(show_spinner=False)
@@ -263,37 +280,214 @@ def generate_intent_actions(slu_result: Optional[dict], emotion_label: Optional[
     return dedupe_preserve_order([a for a in actions if a])
 
 
+def get_emotion_color(emotion: Optional[str]) -> str:
+    """Returns color code for emotion"""
+    if not emotion:
+        return "#6B7280"
+    emotion_lower = emotion.lower()
+    colors = {
+        "happy": "#10B981",
+        "neutral": "#6B7280",
+        "sad": "#3B82F6",
+        "angry": "#EF4444",
+        "fearful": "#8B5CF6",
+        "disgusted": "#F59E0B",
+        "surprised": "#EC4899",
+    }
+    return colors.get(emotion_lower, "#6B7280")
+
+
+def get_status_badge_color(status: str) -> str:
+    """Returns color for status badge"""
+    return "#10B981" if status.upper() == "VIP" else "#6B7280"
+
+
 def main() -> None:
-    st.set_page_config(page_title="Call Support Copilot", layout="wide")
-    st.title("Call Support Copilot")
-    st.caption("Demo: upload an audio call + caller number -> transcript, translation, emotion, client lookup.")
+    st.set_page_config(
+        page_title="Call Support Copilot",
+        page_icon="📞",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+
+    # Custom CSS for better styling
+    st.markdown("""
+    <style>
+        .main-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem;
+            border-radius: 10px;
+            color: white;
+            margin-bottom: 2rem;
+        }
+        .main-header h1 {
+            color: white;
+            margin: 0;
+            font-size: 2.5rem;
+        }
+        .main-header p {
+            color: rgba(255, 255, 255, 0.9);
+            margin: 0.5rem 0 0 0;
+            font-size: 1.1rem;
+        }
+        .info-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            margin: 1rem 0;
+        }
+        .metric-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 0.5rem 0;
+        }
+        .emotion-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            color: white;
+            font-weight: 600;
+            margin: 0.25rem;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .action-item {
+            background: #f0f9ff;
+            padding: 1rem;
+            border-radius: 6px;
+            border-left: 3px solid #3B82F6;
+            margin: 0.5rem 0;
+        }
+        .client-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+        }
+        .stButton>button {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: none;
+        }
+        .stButton>button:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .upload-section {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 10px;
+            border: 2px dashed #cbd5e1;
+            text-align: center;
+            margin: 1rem 0;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Header
+    st.markdown("""
+    <div class="main-header">
+        <h1>📞 Call Support Copilot</h1>
+        <p>AI-powered call analysis for customer support agents</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     db_path = get_db_path()
     ensure_client_db(db_path)
 
+    # Enhanced Sidebar
     with st.sidebar:
-        st.subheader("Demo Scenario")
-        st.write("Bank support (synthetic clients)")
-        agent_language = st.selectbox("Agent language", options=["en"], index=0, disabled=True)
+        st.markdown("### ⚙️ Configuration")
+        st.markdown("---")
+        
+        agent_language = st.selectbox(
+            "🌐 Agent Language",
+            options=["en"],
+            index=0,
+            disabled=True,
+            help="Currently only English is supported",
+        )
+        
         whisper_model_size = st.selectbox(
-            "Whisper model",
+            "🎤 Whisper Model",
             options=["base", "small"],
             index=0,
-            help="Use 'small' for better accuracy (slower + larger download).",
+            help="Base: Faster, smaller. Small: Better accuracy but slower.",
         )
+        
+        st.markdown("---")
+        st.markdown("### 📋 Demo Phone Numbers")
+        st.markdown("""
+        <div style="font-size: 0.9rem; color: #6B7280;">
+        <p><strong>VIP Clients:</strong></p>
+        <ul style="margin: 0.5rem 0;">
+            <li>+41 79 123 45 67</li>
+            <li>+33 1 23 45 67 89</li>
+        </ul>
+        <p><strong>Standard Clients:</strong></p>
+        <ul style="margin: 0.5rem 0;">
+            <li>+31 6 12345678</li>
+            <li>+49 151 23456789</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        st.markdown("### ℹ️ About")
+        st.markdown("""
+        <div style="font-size: 0.85rem; color: #6B7280;">
+        <p>This demo processes customer service calls using:</p>
+        <ul>
+            <li>🎤 Speech Recognition</li>
+            <li>🌍 Translation</li>
+            <li>😊 Emotion Detection</li>
+            <li>🧠 Intent Understanding</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
     col_left, col_middle, col_right = st.columns([1, 1, 1], gap="large")
 
     with col_left:
-        phone_input = st.text_input("Caller phone number", placeholder="+41 79 123 45 67")
-        audio_file = st.file_uploader(
-            "Upload call audio (WAV/MP3/M4A/FLAC/OGG)",
-            type=["wav", "mp3", "m4a", "flac", "ogg"],
+        st.markdown("### 📥 Input")
+        st.markdown("---")
+        
+        phone_input = st.text_input(
+            "📱 Caller Phone Number",
+            placeholder="+41 79 123 45 67",
+            help="Enter the caller's phone number to lookup client information",
         )
+        
+        st.markdown("### 🎵 Audio Upload")
+        audio_file = st.file_uploader(
+            "Upload call audio file",
+            type=["wav", "mp3", "m4a", "flac", "ogg"],
+            help="Supported formats: WAV, MP3, M4A, FLAC, OGG",
+            label_visibility="collapsed",
+        )
+        
         if audio_file is not None:
+            st.markdown("**Audio Preview:**")
             st.audio(audio_file.getvalue())
+            st.success(f"✅ File loaded: {audio_file.name}")
+        else:
+            st.info("👆 Please upload an audio file to begin analysis")
 
-        run = st.button("Process call", type="primary", disabled=(audio_file is None))
+        run = st.button("🚀 Process Call", type="primary", disabled=(audio_file is None), use_container_width=True)
 
     if run and audio_file is not None:
         # Default to demo number if empty
@@ -381,101 +575,261 @@ def main() -> None:
 
     with col_left:
         if result:
-            st.subheader("Transcription")
-            st.write(f"Detected language: `{result['detected_lang']}` (p={result['lang_prob']:.2f})")
-            st.text_area("Transcript", value=result["transcript"], height=220)
+            st.markdown("### 📝 Transcription")
+            st.markdown("---")
+            
+            # Language detection badge
+            lang_prob = result['lang_prob']
+            lang_color = "#10B981" if lang_prob > 0.8 else "#F59E0B" if lang_prob > 0.5 else "#EF4444"
+            st.markdown(f"""
+            <div style="margin-bottom: 1rem;">
+                <span style="background: {lang_color}; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600;">
+                    🌐 {result['detected_lang'].upper()} ({(lang_prob*100):.1f}% confidence)
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.text_area(
+                "**Original Transcript**",
+                value=result["transcript"],
+                height=200,
+                label_visibility="visible",
+                disabled=True,
+            )
+            
             if result["detected_lang"] != agent_language:
                 if result["translated"]:
-                    st.subheader("Translation (English)")
-                    st.text_area("Translated transcript", value=result["translated"], height=220)
+                    st.markdown("### 🌍 Translation")
+                    st.markdown("---")
+                    st.text_area(
+                        "**English Translation**",
+                        value=result["translated"],
+                        height=200,
+                        label_visibility="visible",
+                        disabled=True,
+                    )
                 else:
                     st.warning(
-                        f"Translation not available for `{result['detected_lang']}`. "
-                        "Try English, Dutch (nl), German (de), French (fr), Spanish (es), Italian (it), or Portuguese (pt)."
+                        f"⚠️ Translation not available for `{result['detected_lang']}`. "
+                        "Supported languages: English, Dutch (nl), German (de), French (fr), Spanish (es), Italian (it), Portuguese (pt)."
                     )
 
     if not result:
         with col_middle:
-            st.subheader("Outputs")
-            st.write("Upload audio and click **Process call**.")
+            st.markdown("### 📊 Analysis Results")
+            st.markdown("---")
+            st.markdown("""
+            <div style="text-align: center; padding: 3rem; background: #f8f9fa; border-radius: 10px; border: 2px dashed #cbd5e1;">
+                <h3 style="color: #6B7280;">📊 Analysis Results</h3>
+                <p style="color: #9CA3AF; margin-top: 1rem;">
+                    Upload an audio file and click <strong>Process Call</strong> to see<br>
+                    transcription, emotion analysis, intent detection, and suggested actions here.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_right:
+            st.markdown("### 👤 Client Information")
+            st.markdown("---")
+            st.markdown("""
+            <div style="text-align: center; padding: 3rem; background: #f8f9fa; border-radius: 10px; border: 2px dashed #cbd5e1;">
+                <h3 style="color: #6B7280;">👤 Client Information</h3>
+                <p style="color: #9CA3AF; margin-top: 1rem;">
+                    Enter a phone number and process a call<br>
+                    to see client records and suggested actions here.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
         return
 
     with col_middle:
-        st.subheader("Emotion (SER)")
+        st.markdown("### 😊 Emotion Analysis")
+        st.markdown("---")
+        
         if result.get("ser_error"):
-            st.warning(f"SER failed: {result['ser_error']}")
+            st.error(f"❌ SER failed: {result['ser_error']}")
+        
         ser_label = result.get("ser_label")
         ser_scores = result.get("ser_scores") or {}
         ser_timeline = result.get("ser_timeline") or []
         ser_vad = result.get("ser_vad") or {}
+        
         if ser_label:
-            st.write(f"**Overall:** {ser_label} ({ser_scores.get(ser_label, 0.0):.2f})")
+            emotion_color = get_emotion_color(ser_label)
+            confidence = ser_scores.get(ser_label, 0.0)
+            
+            # Emotion badge
+            st.markdown(f"""
+            <div style="margin-bottom: 1.5rem;">
+                <span class="emotion-badge" style="background: {emotion_color}; font-size: 1.1rem;">
+                    {ser_label.upper()} ({(confidence*100):.1f}%)
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # VAD Metrics
             if ser_vad:
+                st.markdown("**Emotional Dimensions:**")
                 v_col, a_col, d_col = st.columns(3)
-                v_col.metric("Valence", f"{ser_vad.get('valence', 0.0):.2f}")
-                a_col.metric("Arousal", f"{ser_vad.get('arousal', 0.0):.2f}")
-                d_col.metric("Dominance", f"{ser_vad.get('dominance', 0.0):.2f}")
+                v_col.metric(
+                    "😊 Valence",
+                    f"{ser_vad.get('valence', 0.0):.2f}",
+                    help="Positive (1.0) to Negative (0.0)"
+                )
+                a_col.metric(
+                    "⚡ Arousal",
+                    f"{ser_vad.get('arousal', 0.0):.2f}",
+                    help="Excited (1.0) to Calm (0.0)"
+                )
+                d_col.metric(
+                    "👑 Dominance",
+                    f"{ser_vad.get('dominance', 0.0):.2f}",
+                    help="Dominant (1.0) to Submissive (0.0)"
+                )
+            
+            # Current emotion
             if ser_timeline:
                 t0, last_label, last_conf, (v, a, d), _ = ser_timeline[-1]
-                st.write(
-                    f"**Current:** {last_label} ({last_conf:.2f}) at {t0:.1f}s "
-                    f"| V/A/D: {v:.2f}/{a:.2f}/{d:.2f}"
-                )
-            with st.expander("Mean emotion scores"):
-                st.json({k: round(v, 4) for k, v in ser_scores.items()})
-            with st.expander("Emotion timeline"):
-                rows = [
-                    {
-                        "t_start_s": round(t, 2),
-                        "label": lbl,
-                        "confidence": round(conf, 4),
-                        "valence": round(v, 4),
-                        "arousal": round(a, 4),
-                        "dominance": round(d, 4),
-                    }
-                    for (t, lbl, conf, (v, a, d), _full_probs) in ser_timeline
-                ]
-                st.dataframe(rows, width="stretch", height=240)
+                st.markdown(f"""
+                <div class="info-card">
+                    <strong>Current Emotion:</strong> {last_label} ({(last_conf*100):.1f}%) at {t0:.1f}s<br>
+                    <small>V/A/D: {v:.2f} / {a:.2f} / {d:.2f}</small>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Emotion scores expander
+            with st.expander("📈 Detailed Emotion Scores"):
+                emotion_df = pd.DataFrame([
+                    {"Emotion": k, "Score": f"{v:.4f}", "Percentage": f"{(v*100):.2f}%"}
+                    for k, v in sorted(ser_scores.items(), key=lambda x: x[1], reverse=True)
+                ])
+                st.dataframe(emotion_df, use_container_width=True, hide_index=True)
+            
+            # Timeline expander
+            if ser_timeline:
+                with st.expander("⏱️ Emotion Timeline"):
+                    rows = [
+                        {
+                            "Time (s)": round(t, 2),
+                            "Emotion": lbl,
+                            "Confidence": f"{conf:.2%}",
+                            "Valence": round(v, 3),
+                            "Arousal": round(a, 3),
+                            "Dominance": round(d, 3),
+                        }
+                        for (t, lbl, conf, (v, a, d), _full_probs) in ser_timeline
+                    ]
+                    timeline_df = pd.DataFrame(rows)
+                    st.dataframe(timeline_df, use_container_width=True, hide_index=True)
         else:
-            st.write("No SER result.")
+            st.info("No emotion analysis available.")
 
-        st.subheader("Intent (SLU)")
+        st.markdown("---")
+        st.markdown("### 🧠 Intent Understanding")
+        st.markdown("---")
+        
         if result.get("slu_error"):
-            st.warning(f"SLU failed: {result['slu_error']}")
+            st.error(f"❌ SLU failed: {result['slu_error']}")
+        
         slu = result.get("slu_result") or {}
         if slu:
-            if slu.get("is_ood"):
-                st.warning(f"Intent: `unknown` (p={float(slu.get('confidence', 0.0)):.2f})")
+            intent = slu.get("intent", "unknown")
+            confidence = float(slu.get("confidence", 0.0))
+            is_ood = slu.get("is_ood", False)
+            rationale = slu.get("rationale", [])
+            
+            # Check if model is missing
+            no_model = any("no SLU model found" in str(r).lower() for r in rationale)
+            
+            # Intent display
+            if no_model:
+                st.info("ℹ️ **No trained SLU model found.** Using keyword-based slot extraction only.")
+                st.caption("💡 Train a model: `python -m slu.train_transformer`")
+            elif is_ood:
+                st.warning(f"⚠️ **Intent:** `{intent}` (confidence: {(confidence*100):.1f}% - Below threshold)")
             else:
-                st.write(f"**Intent:** `{slu.get('intent')}` ({float(slu.get('confidence', 0.0)):.2f})")
+                intent_color = "#10B981" if confidence > 0.8 else "#F59E0B"
+                st.markdown(f"""
+                <div style="margin-bottom: 1rem;">
+                    <span style="background: {intent_color}; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600; font-size: 1rem;">
+                        🎯 {intent.replace('_', ' ').title()} ({(confidence*100):.1f}%)
+                    </span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Slots display
             slots = slu.get("slots") or {}
             if slots:
-                st.write("**Slots:**")
-                st.json(slots)
+                st.markdown("**📋 Extracted Information:**")
+                for slot_name, slot_value in slots.items():
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <strong>{slot_name.replace('_', ' ').title()}:</strong> {slot_value}
+                    </div>
+                    """, unsafe_allow_html=True)
             else:
-                st.write("**Slots:** (none)")
-            with st.expander("SLU details"):
+                st.info("No structured information extracted.")
+            
+            # SLU details expander
+            with st.expander("🔍 SLU Details"):
                 st.json(slu)
         else:
-            st.write("No SLU result.")
+            st.info("No intent analysis available.")
 
     with col_right:
-        st.subheader("Client record")
+        st.markdown("### 👤 Client Information")
+        st.markdown("---")
+        
         client = result.get("client")
         if client:
-            st.write(f"**{client.name}** ({client.status})")
-            st.write(f"Phone: `{client.phone_number}`")
-            st.write(f"Last contact: `{client.last_contact_date}`")
-            st.write("Recent cases:")
-            st.write(client.recent_cases)
-            st.write("Account notes:")
-            st.write(client.account_notes)
+            status_color = get_status_badge_color(client.status)
+            st.markdown(f"""
+            <div class="client-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="margin: 0; color: #1F2937;">{client.name}</h3>
+                    <span class="status-badge" style="background: {status_color};">
+                        {client.status}
+                    </span>
+                </div>
+                <p style="margin: 0.5rem 0; color: #6B7280;">
+                    <strong>📱 Phone:</strong> <code>{client.phone_number}</code>
+                </p>
+                <p style="margin: 0.5rem 0; color: #6B7280;">
+                    <strong>📅 Last Contact:</strong> {client.last_contact_date}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("**📋 Recent Cases:**")
+            st.markdown(f"""
+            <div class="info-card" style="background: #FEF3C7; border-left-color: #F59E0B;">
+                {client.recent_cases}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("**📝 Account Notes:**")
+            st.markdown(f"""
+            <div class="info-card" style="background: #DBEAFE; border-left-color: #3B82F6;">
+                {client.account_notes}
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.write("No client record found for this phone number.")
+            st.warning("⚠️ No client record found for this phone number.")
+            st.info("💡 Try using one of the demo phone numbers from the sidebar.")
 
-        st.subheader("Suggested actions")
-        for item in result["actions"]:
-            st.write(f"- {item}")
+        st.markdown("---")
+        st.markdown("### 💡 Suggested Actions")
+        st.markdown("---")
+        
+        actions = result.get("actions", [])
+        if actions:
+            for idx, item in enumerate(actions, 1):
+                st.markdown(f"""
+                <div class="action-item">
+                    <strong>{idx}.</strong> {item}
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No specific actions suggested. Proceed with standard support flow.")
 
 
 if __name__ == "__main__":

@@ -21,6 +21,10 @@ EMO_MAP = ["Neutral", "Happy", "Sad", "Angry", "Fearful", "Disgusted", "Surprise
 
 
 def load_audio_16k_mono(path: str) -> np.ndarray:
+    """Load audio file and convert to 16kHz mono.
+    
+    Tries soundfile first, falls back to ffmpeg for unsupported formats.
+    """
     def read_soundfile(p: str) -> tuple[np.ndarray, int]:
         audio, sr = sf.read(p, dtype="float32", always_2d=True)
         audio = audio.mean(axis=1)
@@ -28,11 +32,12 @@ def load_audio_16k_mono(path: str) -> np.ndarray:
 
     try:
         audio, sr = read_soundfile(path)
-    except Exception:
+    except Exception as e:
+        # Try ffmpeg as fallback for formats soundfile can't handle
         tmp_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
         tmp_wav.close()
         try:
-            subprocess.run(
+            result = subprocess.run(
                 [
                     "ffmpeg",
                     "-y",
@@ -51,6 +56,17 @@ def load_audio_16k_mono(path: str) -> np.ndarray:
                 stderr=subprocess.PIPE,
             )
             audio, sr = read_soundfile(tmp_wav.name)
+        except FileNotFoundError:
+            raise RuntimeError(
+                "Could not read audio file. Install ffmpeg for broader format support:\n"
+                "  macOS: brew install ffmpeg\n"
+                "  Ubuntu: sudo apt install ffmpeg\n"
+                f"Original error: {e}"
+            )
+        except subprocess.CalledProcessError as ffmpeg_err:
+            raise RuntimeError(
+                f"ffmpeg failed to convert audio: {ffmpeg_err.stderr.decode() if ffmpeg_err.stderr else str(ffmpeg_err)}"
+            )
         finally:
             try:
                 os.unlink(tmp_wav.name)
@@ -71,9 +87,25 @@ def _default_device() -> int:
 
 @lru_cache(maxsize=2)
 def _get_ser(device: int):
+    """Load and cache the SER model.
+    
+    Downloads the model from HuggingFace on first call (~500MB).
+    """
     device_str = "cuda" if device == 0 and torch.cuda.is_available() else "cpu"
-    processor = AutoProcessor.from_pretrained(REPO_ID, trust_remote_code=True)
-    model = AutoModelForAudioClassification.from_pretrained(REPO_ID, trust_remote_code=True)
+    
+    try:
+        processor = AutoProcessor.from_pretrained(REPO_ID, trust_remote_code=True)
+        model = AutoModelForAudioClassification.from_pretrained(REPO_ID, trust_remote_code=True)
+    except Exception as e:
+        error_msg = str(e)
+        if "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+            raise RuntimeError(
+                f"Failed to download SER model. Check your internet connection.\n"
+                f"Model: {REPO_ID}\n"
+                f"Error: {error_msg}"
+            )
+        raise RuntimeError(f"Failed to load SER model ({REPO_ID}): {error_msg}")
+    
     model.to(device_str)
     model.eval()
 
