@@ -406,6 +406,12 @@ The system recognizes 77 banking intents including:
 
 ---
 
+## Author Contributions
+
+Both authors contributed to both the implementation and the written deliverables. Dmitry Rudshin led the codebase (Streamlit application, pipeline integration, and evaluation scripts) and also contributed to the report. Khoshimov Rakhmatillokhon led the project proposal and report writing and also contributed to the codebase.
+
+---
+
 ## License
 
 This project was developed for academic purposes as part of the Essentials in Text and Speech Processing course at the University of Zurich.
