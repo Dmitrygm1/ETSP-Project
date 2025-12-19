@@ -408,7 +408,7 @@ The system recognizes 77 banking intents including:
 
 ## License
 
-This project was developed for academic purposes as part of the Essentials of Speech and Text Processing course.
+This project was developed for academic purposes as part of the Essentials in Text and Speech Processing course at the University of Zurich.
 
 ---
 
