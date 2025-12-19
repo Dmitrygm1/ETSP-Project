@@ -1,6 +1,6 @@
 # SLU (Spoken Language Understanding)
 
-This folder adds a minimal end-to-end SLU module for the call-support demo:
+This folder adds an end-to-end SLU module for the call-support demo:
 
 - Intent classification (BANKING77 by default)
 - Simple OOD handling via confidence thresholding

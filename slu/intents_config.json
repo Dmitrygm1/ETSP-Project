@@ -1,7 +1,7 @@
 {
   "dataset": "banking77",
   "agent_language": "en",
-  "ood_threshold": 0.78,
+  "ood_threshold": 0.5,
   "intent_actions": {
     "chargeback": [
       "Confirm transaction amount/date and merchant.",
@@ -30,4 +30,3 @@
     ]
   }
 }
-

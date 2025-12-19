@@ -432,7 +432,7 @@ def main() -> None:
                     }
                     for (t, lbl, conf, (v, a, d), _full_probs) in ser_timeline
                 ]
-                st.dataframe(rows, use_container_width=True, height=240)
+                st.dataframe(rows, width="stretch", height=240)
         else:
             st.write("No SER result.")
 
