@@ -2,7 +2,7 @@
 
 > **AI-powered call analysis for customer support agents**
 
-*Project for Essentials of Speech and Text Processing*
+*Project for Essentials in Text and Speech Processing*
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## Overview
 
-Call Support Copilot is a comprehensive speech processing application that analyzes customer service calls in real-time. Upload an audio recording with a caller's phone number to receive:
+Call Support Copilot is a comprehensive speech processing application that analyzes uploaded customer service call recordings with low latency. Upload an audio recording with a caller's phone number to receive:
 
 - **Automatic Speech Recognition (ASR)** - Whisper-based transcription
 - **Language Detection & Translation** - Automatic translation to English when needed
@@ -245,6 +245,8 @@ End-to-end latency benchmark (ASR + SER + MT + DB).
 ```bash
 python -m eval.eval_system_latency --n 10 --skip-accented
 ```
+
+Outputs: `results/system_latency.csv` (per-sample) and `results/system_latency_summary.csv` (mean/median/p90 + real-time factor).
 
 | Option | Description |
 |--------|-------------|
