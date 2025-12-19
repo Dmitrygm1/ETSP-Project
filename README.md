@@ -24,6 +24,27 @@ streamlit run app.py
 
 First run downloads models (Whisper + translation + SER) and can take a while.
 
+## Evals
+
+Install eval dependencies:
+
+```powershell
+pip install -r requirements-eval.txt
+```
+
+Run scripts (writes CSVs into `results/`):
+
+```powershell
+python -m eval.eval_asr_wer --n 50 --skip-accented
+python -m eval.eval_ser_f1 --n 50
+python -m eval.eval_system_latency --n 10 --skip-accented
+python -m eval.eval_mt_bleu --pair de-en --n 50
+```
+
+Notes:
+- The accented ASR dataset (`KoelLabs/L2ArcticSpontaneousSplit`) used in `eval_asr_wer` and `eval_system_latency` may be gated; use `--skip-accented` with those scripts if it fails.
+- SER eval uses SUPERB demo (IEMOCAP 4-class) and reports macro-F1 on `{Neutral, Happy, Sad, Angry}`.
+
 ## SLU (optional training)
 
 See `slu/README.md` for training + evaluation scripts (baseline + transformer).

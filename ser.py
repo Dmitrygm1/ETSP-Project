@@ -204,3 +204,37 @@ def predict_emotion_windows(
     aggregated_label = max(aggregated_scores.items(), key=lambda kv: kv[1])[0] if aggregated_scores else None
     aggregated_vad = {k: v / n for k, v in vad_sums.items()}
     return timeline, aggregated_label, aggregated_scores, aggregated_vad
+
+
+def predict_ser(audio_16k: np.ndarray) -> dict[str, object]:
+    return _predict_ser(audio_16k)
+
+
+def predict_ser_path(audio_path: str) -> dict[str, object]:
+    return _predict_ser(load_audio_16k_mono(audio_path))
+
+
+def predict_ser_proba(audio_16k: np.ndarray) -> tuple[list[str], np.ndarray]:
+    labels, probs, _vad = predict_ser_proba_with_vad(audio_16k)
+    return labels, probs
+
+
+def predict_ser_proba_with_vad(audio_16k: np.ndarray) -> tuple[list[str], np.ndarray, dict[str, float]]:
+    pred = _predict_ser(audio_16k)
+    probs = pred["probs"]
+    labels = list(EMO_MAP)
+    prob_array = np.asarray([float(probs[lbl]) for lbl in labels], dtype=np.float32)
+    vad = {
+        "valence": float(pred["valence"]),
+        "arousal": float(pred["arousal"]),
+        "dominance": float(pred["dominance"]),
+    }
+    return labels, prob_array, vad
+
+
+def predict_ser_proba_path(audio_path: str) -> tuple[list[str], np.ndarray]:
+    return predict_ser_proba(load_audio_16k_mono(audio_path))
+
+
+def predict_ser_proba_path_with_vad(audio_path: str) -> tuple[list[str], np.ndarray, dict[str, float]]:
+    return predict_ser_proba_with_vad(load_audio_16k_mono(audio_path))

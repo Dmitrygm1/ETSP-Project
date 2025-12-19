@@ -7,3 +7,4 @@ data/*.db
 .qodo/
 models/
 data/hf_cache/
+results/
