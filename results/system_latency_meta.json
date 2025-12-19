@@ -1,0 +1,10 @@
+{
+  "n": 10,
+  "seed": 0,
+  "whisper_model": "base",
+  "ser_mode": "chunked",
+  "window": 4.0,
+  "hop": 2.0,
+  "results_dir": "C:\\Users\\20211927\\OneDrive - TU Eindhoven\\Documents\\GitHub\\ESTP-Project\\results",
+  "skip_accented": true
+}

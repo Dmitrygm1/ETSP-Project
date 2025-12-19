@@ -7,3 +7,4 @@ datasets==2.21.0
 jiwer>=3.0
 sacrebleu>=2.4
 librosa
+torchcodec

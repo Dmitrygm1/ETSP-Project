@@ -1,0 +1,17 @@
+dataset,utt_id,duration_sec,t_asr,t_ser,t_mt,t_db,t_total,rtf_total
+librispeech_test_clean,1284-1180-0021,9.84,3.156992,10.999074,0.0,0.004568,14.160634,1.4391
+librispeech_test_clean,8230-279154-0019,18.145,2.42227,8.406616,0.0,0.003591,10.832477,0.597
+librispeech_test_clean,2961-960-0014,8.775,2.006431,3.544594,0.0,0.003015,5.55404,0.6329
+librispeech_test_clean,7729-102255-0008,19.065,2.147416,8.376225,0.0,0.002233,10.525874,0.5521
+librispeech_test_clean,7729-102255-0046,19.945,3.913683,7.933671,0.0,0.001573,11.848927,0.5941
+librispeech_test_clean,6930-76324-0019,2.575,1.16321,0.866898,0.0,0.001192,2.0313,0.7889
+librispeech_test_clean,6930-81414-0025,2.53,1.195274,0.874367,0.0,0.001041,2.070682,0.8185
+librispeech_test_clean,6930-75918-0016,10.015,1.485934,4.366436,0.0,0.00168,5.85405,0.5845
+librispeech_test_clean,5639-40744-0038,13.8,2.322696,5.281608,0.0,0.000955,7.605259,0.5511
+librispeech_test_clean,1284-1181-0006,11.405,1.585828,4.498123,0.0,0.000951,6.084902,0.5335
+superb_er_session1,/Users/quentinlhoest/.cache/huggingface/datasets/downloads/extracted/7ca4dea24a1694679e3f3dce7a31fd899b77abda4ae8c1708783305f2e436072/Session1/sentences/wav/Ses01M_impro03/Ses01M_impro03_M007.wav,8.0825,1.252691,3.519477,0.0,0.000808,4.772976,0.5905
+superb_er_session1,/Users/quentinlhoest/.cache/huggingface/datasets/downloads/extracted/7ca4dea24a1694679e3f3dce7a31fd899b77abda4ae8c1708783305f2e436072/Session1/sentences/wav/Ses01F_impro05/Ses01F_impro05_F015.wav,15.495,1.839035,6.192266,0.0,0.00157,8.032871,0.5184
+superb_er_session1,/Users/quentinlhoest/.cache/huggingface/datasets/downloads/extracted/7ca4dea24a1694679e3f3dce7a31fd899b77abda4ae8c1708783305f2e436072/Session1/sentences/wav/Ses01M_impro06/Ses01M_impro06_M018.wav,3.8799,1.426195,0.898352,0.0,0.001577,2.326123,0.5995
+superb_er_session1,/Users/quentinlhoest/.cache/huggingface/datasets/downloads/extracted/7ca4dea24a1694679e3f3dce7a31fd899b77abda4ae8c1708783305f2e436072/Session1/sentences/wav/Ses01M_impro04/Ses01M_impro04_M023.wav,6.303,2.400797,2.95776,0.0,0.001354,5.359911,0.8504
+superb_er_session1,/Users/quentinlhoest/.cache/huggingface/datasets/downloads/extracted/7ca4dea24a1694679e3f3dce7a31fd899b77abda4ae8c1708783305f2e436072/Session1/sentences/wav/Ses01F_impro03/Ses01F_impro03_F013.wav,5.1299,1.546223,1.982204,0.0,0.001607,3.530034,0.6881
+superb_er_session1,/Users/quentinlhoest/.cache/huggingface/datasets/downloads/extracted/7ca4dea24a1694679e3f3dce7a31fd899b77abda4ae8c1708783305f2e436072/Session1/sentences/wav/Ses01F_impro04/Ses01F_impro04_F000.wav,4.3945,1.479365,1.993196,0.0,0.001269,3.47383,0.7905

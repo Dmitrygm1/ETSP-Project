@@ -24,6 +24,15 @@ streamlit run app.py
 
 First run downloads models (Whisper + translation + SER) and can take a while.
 
+## Performance (Optional GPU Setup)
+
+For real-time performance (approx. 10x faster), install PyTorch with CUDA support (NVIDIA GPUs only):
+
+```powershell
+pip uninstall -y torch torchaudio
+pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
+
 ## Evals
 
 Install eval dependencies:
